@@ -39,6 +39,8 @@ Runtime contractual testing à la Clojure/Eiffel
 
 **pp.objectOf**
 
+**pp.function (pp.isFunction)**
+
 **pp.eq**
 
 **pp.ne**
