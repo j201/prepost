@@ -5,20 +5,16 @@ var pp = function(preConds, postCond, fn) {
 		// TODO: arg type checking
 		return function() {
 			pp.args = Array.prototype.slice.call(arguments);
+			if (pp.isFunction(preConds))
+				preConds = [preConds];
 
 			var failed, failCond, failArg;
-			if (pp.array(preConds)) {
-				// TODO: implement pp.optional and pp.rest
-				failed = preConds.some(function(cond, index) {
-					failCond = cond;
-					failArg = pp.args[index];
-					return !cond(failArg);
-				});
-			} else if (pp.isFunction(preConds)) {
-				failCond = preConds;
-				failArg = pp.args[0];
-				failed = preConds(failArg);
-			}
+			// TODO: implement pp.optional and pp.rest
+			failed = preConds.some(function(cond, index) {
+				failCond = cond;
+				failArg = pp.args[index];
+				return !cond(failArg);
+			});
 
 			if (failed)
 				sendError("Pre condition failed: " + getMessage(failCond, failArg) + " in " + fn.toString());
@@ -60,6 +56,13 @@ function setFullMessage(sender, message) { // Won't have argument details added 
 	sender._ppFullMessage = message;
 	sender._ppMesssage = '';
 }
+
+pp.pre = function(preCond, fn) {
+	return pp(preCond, function() { return true; }, fn);
+};
+pp.post = function(postCond, fn) {
+	return pp([], postCond, fn);
+};
 
 pp.and = function() {
 	var conds = Array.prototype.slice.call(arguments);
