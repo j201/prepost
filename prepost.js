@@ -125,7 +125,7 @@ setMessage(pp['void'], "Argument not null or undefined");
 setMessage(pp.isVoid, "Argument not null or undefined");
 
 pp.integer = function(val) {
-	return pp.number(val) && val <= 9007199254740992 && val >= -9007199254740992; // http://stackoverflow.com/a/11639621
+	return pp.number(val) && val % 1 === 0 && val <= 9007199254740992 && val >= -9007199254740992; // http://stackoverflow.com/a/11639621
 };
 setMessage(pp.integer, "Argument is not an integer");
 
@@ -156,7 +156,7 @@ setMessage(pp.plainObject, "Argument is not a plain object");
 
 pp.objectOf = function(cond) {
 	return function(val) {
-		var passed = pp.object(val) && Object.keys(val).every(function(prop) { return cond(prop); });
+		var passed = pp.object(val) && Object.keys(val).every(function(key) { return cond(val[key]); });
 		if (!passed)
 			setMessage(pp.objectOf, "Not all properties matched condition: " + getMessage(cond, val));
 		return passed;
