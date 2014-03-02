@@ -55,6 +55,12 @@ Runtime contractual testing à la Clojure/Eiffel
 
 **pp.instanceOf**
 
+**pp.maybe**
+
 **pp.args**
 
 **pp.optional**
+
+**pp.even**
+
+**pp.odd**

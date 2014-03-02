@@ -5,23 +5,46 @@ var pp = function(preConds, postCond, fn) {
 		// TODO: arg type checking
 		return function() {
 			pp.args = Array.prototype.slice.call(arguments);
-			if (pp.isFunction(preConds))
-				preConds = [preConds];
 
-			var failed, failCond, failArg;
-			// TODO: implement pp.optional and pp.rest
-			failed = preConds.some(function(cond, index) {
-				failCond = cond;
-				failArg = pp.args[index];
-				return !cond(failArg);
-			});
+			if (!pp.isVoid(preConds)) {
+				if (pp.isFunction(preConds))
+					preConds = [preConds];
 
-			if (failed)
-				sendError("Pre condition failed: " + getMessage(failCond, failArg) + " in " + fn.toString());
+				var failed, failCond, failArg;
+				var conds = preConds.slice(0);
+				failed = pp.args.some(function(arg, index) {
+					if (conds.length === 0)
+						sendError("Too many arguments: " + pp.args.toString() + " in " + toString(fn));
+
+					failCond = conds[0];
+					failArg = arg;
+
+					var failed = !failCond(failArg);
+
+					// If failed and the parameter is optional or it's a non-last variadic parameter, try the next cond
+					while (failed && (isOptional(conds[0]) || (isVariadic(conds[0]) && conds.length > 1))) {
+						conds = conds.slice(1);
+						if (!pp.isFunction(conds[0])) {
+							return true;
+						}
+						failCond = conds[0];
+						failArg = arg;
+						failed = !failCond(failArg);
+					}
+
+					if (!isVariadic(conds[0]))
+						conds = conds.slice(1);
+
+					return failed;
+				});
+
+				if (failed)
+					sendError("Pre condition failed: " + getMessage(failCond, failArg) + " in " + toString(fn));
+			}
 
 			var result = fn.apply(this, arguments);
 			if (!postCond(result))
-				sendError("Post condition failed: " + getMessage(postCond, failArg) + " in " + fn.toString());
+				sendError("Post condition failed: " + getMessage(postCond, result) + " in " + toString(fn));
 
 			return result;
 		};
@@ -41,7 +64,8 @@ function sendError(message) {
 }
 
 function toString(val) {
-	return String(val); // TODO: improve
+	return pp.isFunction(val) ? val.name || val.toString() || "anonymous function" :
+		String(val); // TODO: improve
 }
 
 function getMessage(cond, val) {
@@ -61,7 +85,11 @@ pp.pre = function(preCond, fn) {
 	return pp(preCond, function() { return true; }, fn);
 };
 pp.post = function(postCond, fn) {
-	return pp([], postCond, fn);
+	return pp(null, postCond, fn);
+};
+
+pp.any = function() {
+	return true;
 };
 
 pp.and = function() {
@@ -80,7 +108,7 @@ pp.and = function() {
 pp.or = function() {
 	var conds = Array.prototype.slice.call(arguments);
 	return function(val) {
-		var passed = conds.some(function(val) {
+		var passed = conds.some(function(cond) {
 			return cond(val);
 		});
 		if (!passed) setFullMessage(pp.or, "pp.or: all conditions failed");
@@ -93,6 +121,16 @@ pp.not = function(cond) {
 		var failed = cond(val);
 		if (failed) setFullMessage(pp.not, "pp.not condition returned true: " + getMessage(cond, val));
 		return !failed;
+	};
+};
+
+pp.maybe = function(cond) {
+	return function(val) {
+		if (val != null && !cond(val)) {
+			setFullMessage("pp.maybe: argument not null or undefined and condition failed: " + getMessage(cond, val));
+			return false;
+		}
+		return true;
 	};
 };
 
@@ -258,6 +296,7 @@ pp.instanceOf = function(ctor) {
 };
 
 pp.optional = function(cond) {
+	// Duplicate the cond and add flag
 	var result = function(x) {
 		var result = cond(x);
 		setMessage(pp.optional, getMessage(cond));
@@ -271,6 +310,18 @@ function isOptional(cond) {
 	return cond._ppOptional;
 }
 
-// TODO: pp.rest
+pp.variadic = function(cond) {
+	var result = function(x) {
+		var result = cond(x);
+		setMessage(pp.variadic, getMessage(cond));
+		return result;
+	};
+	result._ppVariadic = true;
+	return result;
+};
+
+function isVariadic(cond) {
+	return cond._ppVariadic;
+}
 
 module.exports = pp;
